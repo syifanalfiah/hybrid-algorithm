@@ -1,0 +1,220 @@
+<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Balapan Hybrid Cloud: ACO-SA vs DMFO-DE</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff4d6;--ink:#3b2a1a;--card:#ffe9a8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#3a2b1d;--ink:#fff1d0;--card:#53402b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#3a2b1d;--ink:#fff1d0;--card:#53402b;color-scheme:dark}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:19px/1.3 'Patrick Hand','Comic Sans MS',cursive}
+#g{flex:0 0 44%;width:100%;display:block;min-height:0}
+#p{flex:1;overflow:auto;padding:14px 16px;border-top:5px solid #3b2a1a}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.card{background:var(--card);border:3px solid #3b2a1a;border-radius:14px;padding:10px 14px;box-shadow:4px 4px 0 #3b2a1a}
+h2{margin:0 0 6px;font-size:25px}p{margin:6px 0}
+button,select{font:inherit;color:#3b2a1a;background:#ffd166;border:3px solid #3b2a1a;border-radius:12px;padding:3px 12px;cursor:pointer;box-shadow:3px 3px 0 #3b2a1a}
+button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #3b2a1a}button:disabled{opacity:.45;cursor:not-allowed}
+.go{background:#7bd14f}
+canvas.s{width:100%;aspect-ratio:1;border:3px solid #3b2a1a;border-radius:12px;display:block}
+#hud{position:fixed;right:10px;top:calc(8px + env(safe-area-inset-top,0px));display:flex;gap:8px;align-items:center;z-index:5}
+#hud span{background:#fff;color:#3b2a1a;border:3px solid #3b2a1a;border-radius:12px;padding:1px 10px}
+.fn{display:inline-block;margin:3px;padding:2px 8px;border:2px dashed currentColor;border-radius:10px}
+.tb{border-collapse:collapse;font-size:15px;margin-top:6px;width:100%}.tb td,.tb th{border-bottom:2px solid currentColor;padding:2px 6px;text-align:right}.tb td:first-child,.tb th:first-child{text-align:left}
+.stp,.kc{font-size:17px;margin:2px}.stp.on{background:#7bd14f}.kc{text-align:left;background:#fff}.kc.good{background:#bdeaa0}.kc.bad{background:#f7b3a8}.dd{background:#fff9e6;color:#3b2a1a;border:2px solid #3b2a1a;border-radius:10px;padding:6px 10px;margin:6px 0;font-size:17px}details{margin:6px 0}summary{cursor:pointer;font-weight:bold;font-size:20px}.dd .tb{color:#3b2a1a}</style></head><body>
+<canvas id="g"></canvas>
+<div id="hud"><span id="sg">Stage 1/8</span><button id="mu" title="Suara">🔊</button></div>
+<div id="p"></div>
+<script>
+const $=s=>document.querySelector(s),g=$('#g'),c=g.getContext('2d'),TAU=6.2832,INK='#3b2a1a',FONT="'Patrick Hand',cursive";
+let W,H,cam=0,fr=0,stage=0,sims=[],run=false,done=false,muted=false,A,osc,gn,conf=[],puf=[],bub={t:'',n:0},seed=7,win=-1,cars=[mkc('#e4352f',1,0)];
+function mkc(col,sc,dy,name){return{x:0,tx:250,v:0,rot:0,col,sc,dy,name}}
+function rs(){const d=devicePixelRatio||1;W=g.clientWidth;H=g.clientHeight;g.width=W*d;g.height=H*d;c.setTransform(d,0,0,d,0,0)}
+addEventListener('resize',rs);
+const hy=x=>H*.76-(Math.sin(x*.005)*24+Math.sin(x*.0021+1)*38+Math.sin(x*.013)*5);
+const rng=a=>()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const NS=8,CC=['#e4352f','#2b6fdc'],GC=['#9b6bd6','#ffb347','#66c2a5','#ff8fb1'],f2=x=>x.toFixed(2);
+/* Dataset Minggu 3 (identik dengan week3-dataset.js) */
+const VMS=[{id:'VM-1',mips:1500,c:.04},{id:'VM-2',mips:2000,c:.06},{id:'VM-3',mips:2500,c:.08},{id:'VM-4',mips:3000,c:.10}],
+TK=[4500,7200,3100,8900,5400,6200,2800,9100,4900,6700,3800,7500,5100,8200,4200,6900].map((m,i)=>({id:'T'+String(i+1).padStart(2,'0'),mi:m})),NV=4,
+LB=TK.reduce((a,t)=>a+t.mi,0)/VMS.reduce((a,v)=>a+v.mips,0);
+function ev(s){const ld=Array(NV).fill(0),bl=VMS.map(()=>[]);TK.forEach((t,i)=>{const j=s[i]%NV,a=ld[j],b=a+t.mi/VMS[j].mips;bl[j].push({id:t.id,a,b});ld[j]=b});
+const mk=Math.max(...ld),av=ld.reduce((a,b)=>a+b,0)/NV;return{mk,cost:ld.reduce((a,l,j)=>a+l*VMS[j].c,0),di:(mk-Math.min(...ld))/av,ld,bl}}
+class LCG{constructor(s=2026){this.s=s>>>0}random(){this.s=(this.s*1664525+1013904223)%4294967296;return this.s/4294967296}}
+const E0={mk:Infinity,cost:Infinity,di:0,bl:[]};
+/* ACO-SA: alpha=1, beta=1.5, rho=0.25, T=25*0.05^progress, 5 langkah SA per semut */
+class ACO{constructor(P,T,r){this.name='ACO-SA';this.P=P;this.T=T;this.r=r;this.nfe=0;this.it=0;this.ph=TK.map(()=>Array(NV).fill(1));this.b=null;this.bm=E0;this.h=[]}
+ant(){return TK.map((t,k)=>{const w=VMS.map((v,j)=>Math.pow(this.ph[k][j],1)*Math.pow(v.mips/t.mi,1.5)),sw=w.reduce((a,b)=>a+b,0);let x=this.r()*sw,c=NV-1;for(let j=0;j<NV;j++){x-=w[j];if(x<=0){c=j;break}}return c})}
+sa(s0,T){this.nfe+=6;let c=[...s0],ce=ev(c);for(let k=0;k<5;k++){const n=[...c];n[Math.floor(this.r()*TK.length)]=Math.floor(this.r()*NV);const ne=ev(n),d=ne.mk-ce.mk;if(d<=0||this.r()<Math.exp(-d/Math.max(T,1e-4))){c=n;ce=ne}}return{s:c,e:ce}}
+step(){if(this.it>=this.T)return;const tp=25*Math.pow(.05,this.it/Math.max(1,this.T-1));let bs=null,be={mk:Infinity};
+for(let i=0;i<this.P;i++){const q=this.sa(this.ant(),tp);if(q.e.mk<be.mk){be=q.e;bs=q.s}}
+for(let t=0;t<TK.length;t++){for(let v=0;v<NV;v++)this.ph[t][v]*=.75;this.ph[t][bs[t]]+=1/Math.max(be.mk,1e-6)}
+if(be.mk<this.bm.mk){this.bm=be;this.b=[...bs]}this.it++;this.h.push(this.bm.mk)}}
+/* DMFO-DE: F=0.6, CR=0.7, b=1. currentIter diinisialisasi 0 (di kode asli tidak, sehingga loop tidak pernah jalan) */
+class DMFO{constructor(P,T,r){this.name='DMFO-DE';this.P=P;this.T=T;this.r=r;this.nfe=P;this.it=0;this.h=[];this.bm=E0;this.b=null;this.m=[];
+for(let i=0;i<P;i++){const pos=TK.map(()=>Math.floor(r()*NV)),e=ev(pos);this.m.push({pos,f:e.mk,e});if(e.mk<this.bm.mk){this.bm=e;this.b=[...pos]}}}
+cv(v){return((Math.round(v)%NV)+NV)%NV}
+step(){if(this.it>=this.T)return;const r=this.r,fc=Math.max(1,Math.round(this.P-this.it*((this.P-1)/Math.max(1,this.T)))),fl=[...this.m].sort((a,b)=>a.f-b.f).slice(0,fc);
+this.nfe+=this.P;for(let i=0;i<this.P;i++){const m=this.m[i],tf=fl[Math.min(i,fl.length-1)],tp=(r()-.5)*2,
+sp=m.pos.map((v,d)=>this.cv(Math.abs(tf.pos[d]-v)*Math.exp(tp)*Math.cos(2*Math.PI*tp)+tf.pos[d])),a=this.m[Math.floor(r()*this.P)].pos,c=this.m[Math.floor(r()*this.P)].pos,jr=Math.floor(r()*TK.length),
+tr=sp.map((v,d)=>(r()<.7||d===jr)?this.cv(this.b[d]+.6*(a[d]-c[d])):v),te=ev(tr);
+if(te.mk<=m.f){m.pos=tr;m.f=te.mk;m.e=te;if(te.mk<this.bm.mk){this.bm=te;this.b=[...tr]}}}this.it++;this.h.push(this.bm.mk)}}
+function mkPair(P,T,sd){const r1=new LCG(sd),r2=new LCG(sd);return[new ACO(P,T,()=>r1.random()),new DMFO(P,T,()=>r2.random())]}
+const QZ=[{"q": "Mengapa ACO-SA menggabungkan Simulated Annealing ke dalam Ant Colony Optimization?", "o": [{"l": "A", "t": "Supaya jumlah semut bisa diperbanyak secara adaptif", "ok": false, "fb": "Jumlah semut tidak berkaitan dengan SA. SA dipakai untuk memperbaiki kualitas solusi tiap semut, bukan untuk menambah semut."}, {"l": "B", "t": "SA membantu ACO keluar dari optimum lokal dengan menerima solusi yang sedikit lebih buruk", "ok": true, "fb": "Tepat! ACO cenderung terjebak di optimum lokal. SA menambahkan kemampuan menerima solusi yang sedikit lebih buruk sehingga pencarian bisa keluar dari jebakan tersebut."}, {"l": "C", "t": "SA menggantikan proses pembaruan feromon ACO agar lebih deterministik", "ok": false, "fb": "SA bekerja pada ruang solusi yang sama dengan ACO, bukan pada feromon. SA memodifikasi solusi semut, bukan tabel feromon secara langsung."}, {"l": "D", "t": "SA mempercepat konvergensi ACO dengan mengurangi jumlah iterasi", "ok": false, "fb": "Sebaliknya — SA menambah overhead komputasi. Keuntungannya adalah kualitas solusi yang lebih baik, bukan kecepatan."}]}, {"q": "Dalam DMFO-DE, jumlah nyala api (flames) dikurangi setiap iterasi. Apa tujuan strategi ini?", "o": [{"l": "A", "t": "Menghemat memori agar komputasi lebih cepat", "ok": false, "fb": "Mengurangi api tidak memengaruhi kecepatan komputasi secara langsung. Tujuannya adalah mengarahkan eksplorasi, bukan mempercepat kalkulasi."}, {"l": "B", "t": "Memperluas area eksplorasi di iterasi akhir", "ok": false, "fb": "Sebaliknya — iterasi awal memiliki lebih banyak api untuk eksplorasi luas. Api berkurang justru untuk memperkuat eksploitasi di akhir."}, {"l": "C", "t": "Mendorong eksploitasi — ngengat semakin berfokus ke solusi terbaik seiring berjalannya iterasi", "ok": true, "fb": "Benar! Banyak api di awal → eksplorasi luas. Semakin sedikit api seiring iterasi → ngengat fokus pada wilayah solusi terbaik (eksploitasi), mirip dengan penurunan suhu pada Simulated Annealing."}, {"l": "D", "t": "Mengurangi jumlah ngengat agar populasi tidak terlalu besar", "ok": false, "fb": "Tidak. Jumlah ngengat (populasi) tetap konstan. Hanya jumlah api referensi yang berkurang."}]}];
+function say(t){bub.t=t;bub.n=0}
+let tm=null,sim=null,ok=false,prog=0,kc=[null,null],pop=24,mxi=60,sd=2026,bres=null,wins=[0,0,0];
+function unlock(m){ok=true;const n=$('#nx');if(n)n.disabled=false;say(m);burst();yay()}
+/* ---- Stage ---- */
+const stt=x=>{const m=x.reduce((a,b)=>a+b,0)/x.length;return[m,Math.sqrt(x.reduce((a,b)=>a+(b-m)**2,0)/x.length),Math.min(...x),Math.max(...x)]};
+const dd=(t,h,o)=>`<details${o?' open':''}><summary>${t}</summary><div class="dd">${h}</div></details>`;
+const ST=[
+{t:'Stage 0: Formulasi & Dataset Minggu 3',m:'Halo! Selamat datang di balapan penjadwalan cloud: ACO-SA lawan DMFO-DE!',btn:'Tancap Gas! 🚗',free:1,
+ b:'Dua algoritma hybrid akan berlomba membagi 16 task ke 4 VM. Buka tiap bagian di bawah untuk memahami masalah, rumus, dan datanya sebelum balapan dimulai.',
+ go(){const tot=TK.reduce((a,t)=>a+t.mi,0);$('#ex').innerHTML=
+ dd('📘 Apa masalah yang diselesaikan?',`Di cloud, banyak <b>task</b> (pekerjaan; ukurannya dalam juta instruksi, MI) harus dibagi ke beberapa <b>VM</b> (mesin virtual; kecepatannya dalam MIPS). Memutuskan task mana jalan di VM mana disebut <b>task scheduling</b>.<br>Dengan ${TK.length} task dan ${NV} VM ada 4<sup>16</sup> = <b>4.294.967.296</b> kemungkinan jadwal. Mencoba semuanya tidak praktis, apalagi kalau task dan VM bertambah. Karena itu dipakai <b>metaheuristik</b>: algoritma yang mencari jadwal bagus lewat tebakan terarah, bukan menghitung semua kemungkinan. Algoritma <b>hybrid</b> menggabungkan dua metode supaya kelemahan satu ditutup oleh yang lain.`,1)+
+ dd('🧮 Rumus dan contoh hitung',`<b>Waktu eksekusi</b> ET = lengthMI / MIPS VM. Contoh T01 (${TK[0].mi} MI): di VM-1 = ${f2(TK[0].mi/1500)} s, di VM-4 = ${f2(TK[0].mi/3000)} s.<br><b>Beban VM</b> = jumlah ET semua task di VM itu (task dijalankan berurutan).<br><b>Makespan</b> C<sub>max</sub> = max<sub>j</sub> (beban VM-j), yaitu waktu selesai seluruh pekerjaan. Semua task di VM-1 = ${f2(tot/1500)} s, semua di VM-4 = ${f2(tot/3000)} s.<br><b>Batas ideal</b> = ΣMI / ΣMIPS = ${tot} / 9000 = <b>${f2(LB)} s</b> (beban dibagi sempurna sesuai kecepatan VM; karena task tidak bisa dipecah, jadwal nyata hanya bisa mendekati).<br><b>DI</b> = (L<sub>max</sub> − L<sub>min</sub>) / L<sub>avg</sub>. DI 0 berarti semua VM sama sibuk; makin besar makin timpang.<br><b>Total cost</b> = Σ beban VM × biaya per detik. VM cepat lebih mahal per detik tetapi bekerja lebih singkat.`)+
+ dd('🗂️ Dataset Minggu 3',`<table class="tb"><tr><th>VM</th><th>MIPS</th><th>Biaya/dtk</th></tr>${VMS.map(v=>`<tr><td>${v.id}</td><td>${v.mips}</td><td>$${v.c.toFixed(2)}</td></tr>`).join('')}</table><p>${TK.map(t=>`<span class="fn">${t.id}: ${t.mi.toLocaleString('id-ID')} MI</span>`).join('')}</p>Total ${tot.toLocaleString('id-ID')} MI. Datasetnya kecil agar jadwal tiap VM bisa digambar jelas.`)+
+ dd('🏁 Dua pembalap',`<b>ACO-SA</b> (Mensah et al., 2021; Kumar, 2024): semut membangun jadwal lewat feromon, lalu Simulated Annealing memperhalusnya.<br><b>DMFO-DE</b> (Ahmed et al., 2021): ngengat terbang spiral menuju api (solusi terbaik), lalu operator mutasi dan crossover Differential Evolution memperkaya gerakannya.<br>Alur balapan: walkthrough ACO-SA, kuis, simulator balapan, walkthrough DMFO-DE, kuis, benchmark 10 trial, lalu skor.`)}},
+{t:'Stage 1: Walkthrough ACO-SA',m:'Stage 1: semut dan suhu bekerja sama mencari jadwal terbaik!',btn:'Lanjut ke Knowledge Check 1 ➜',wt:0,col:'#e4352f',
+ b:'ACO (Ant Colony Optimization) meniru semut mencari makanan: jalur bagus ditandai feromon sehingga semut berikutnya cenderung mengikutinya. SA (Simulated Annealing) meniru pendinginan logam. Klik tiap langkah atau tekan Langkah ▶; Next terbuka setelah kamu melihat kelima langkah.'},
+{t:'Stage 2: Knowledge Check 1',m:'Waktunya kuis! Jawab dulu sebelum tancap gas.',btn:'Lanjut ke Simulator ➜',qz:0,
+ b:'Ingat: ACO membangun solusi lewat feromon dan heuristik, sedangkan SA memperbaiki solusi itu dan boleh menerima solusi sedikit lebih buruk dengan peluang exp(−Δ/T).'},
+{t:'Stage 3: Balapan ACO-SA vs DMFO-DE',m:'Balapan! Siapa makespan-nya paling dekat ke batas ideal?',btn:'Lanjut ke Walkthrough DMFO-DE ➜',sim:1,
+ b:'Dua algoritma memakai dataset Minggu 3 dan seed yang sama. Atur populasi, iterasi, dan seed lalu tekan Play, Step, atau Reset.',
+ hint:dd('👀 Cara membaca visual',`<b>Mobil</b>: makin dekat ke batas ideal (${f2(LB)} s) makin jauh melaju.<br><b>Gantt</b>: satu baris = satu VM, satu blok = satu task (angka = nomor task), lebar blok = waktu eksekusinya. Jadwal bagus: semua baris berakhir hampir bersamaan dan dekat garis merah putus-putus (batas ideal).<br><b>Grafik</b>: makespan terbaik tiap iterasi. Bentuk tangga karena nilai hanya berubah saat ditemukan jadwal lebih baik; kurva tidak pernah naik.<br><b>Tabel</b>: Gap = selisih ke batas ideal, DI = ketimpangan beban, NFE = berapa kali jadwal dievaluasi (ukuran biaya komputasi).`,1)},
+{t:'Stage 4: Walkthrough DMFO-DE',m:'Stage 4: ngengat mengejar api dengan lintasan spiral!',btn:'Lanjut ke Knowledge Check 2 ➜',wt:1,col:'#2b6fdc',
+ b:'MFO (Moth-Flame Optimization) meniru ngengat yang terbang spiral menuju cahaya. DE (Differential Evolution) menambah operator mutasi dan crossover. Gabungan keduanya disebut DMFO-DE (Discrete MFO karena posisi berupa nomor VM bulat).'},
+{t:'Stage 5: Knowledge Check 2',m:'Kuis kedua tentang api dan ngengat!',btn:'Lanjut ke Benchmark ➜',qz:1,
+ b:'Ingat: banyak api di awal berarti eksplorasi luas, sedikit api di akhir berarti eksploitasi ke solusi terbaik. Jumlah ngengat (populasi) tetap.'},
+{t:'Stage 6: Eksperimen Multi-Trial',m:'Benchmark: 10 trial dengan seed berbeda!',btn:'Lanjut ke Skor ➜',bm:1,
+ b:'Algoritma metaheuristik bersifat acak, jadi satu kali balapan belum cukup untuk menyimpulkan. Di sini dijalankan 10 trial independen (seed = 2026 + trial × 37) dengan populasi dan iterasi dari simulator. Δ = makespan ACO-SA − makespan DMFO-DE: negatif berarti ACO-SA lebih kecil (unggul), positif berarti DMFO-DE unggul. Rata-rata dan simpangan baku menunjukkan kualitas sekaligus kestabilan hasil.'},
+{t:'Stage 7: Garis Finish!',m:'Selamat! Kamu sampai di garis finish!',btn:'Main Lagi ↺',free:1,fin:1}];
+const WT=[[
+{t:'Inisialisasi',l:['Feromon awal τ = 1.0 untuk semua pasangan (task, VM)','Populasi semut siap di-spawn'],
+ d:'Semut buatan membangun jadwal task demi task. Pengalaman kolektif mereka disimpan dalam tabel feromon τ berukuran 16 × 4 (satu sel per pasangan task dan VM). Semua sel diisi 1,0 sehingga di awal tidak ada VM yang diunggulkan oleh feromon; satu-satunya pembeda adalah heuristik kecepatan VM (langkah 2). Jumlah semut sama dengan ukuran populasi.',
+ ex(){return'populasi 24 semut, iterasi maksimum 60, α = 1, β = 1,5, ρ = 0,25, suhu awal 25 dan faktor pendinginan 0,05, 5 langkah SA per semut.'}},
+{t:'Bangun solusi semut',l:['Setiap semut memilih VM berdasarkan τ^α × η^β (α = 1, β = 1,5)','η = kecepatan VM / panjang task (heuristik)'],
+ d:'Untuk tiap task, semut menghitung bobot setiap VM = τ<sup>α</sup> × η<sup>β</sup>. τ adalah jejak feromon (pengalaman semut sebelumnya) dan η = MIPS VM / panjang task (VM cepat bernilai besar). Dengan β = 1,5 heuristik lebih berpengaruh dibanding feromon (α = 1). Bobot dijadikan peluang, lalu VM dipilih lewat undian berbobot (roulette wheel): VM cepat lebih sering terpilih, tetapi VM lain tetap punya peluang sehingga jadwal tetap beragam.',
+ ex(){const w=VMS.map(v=>Math.pow(v.mips/TK[0].mi,1.5)),s=w.reduce((a,b)=>a+b,0);return`pada awal (τ = 1) peluang VM-1..4 = ${w.map(x=>(x/s*100).toFixed(1)+'%').join(' · ')}. Peluang ini sama untuk semua task karena panjang task ikut terbagi habis saat dinormalkan; perbedaan antar task baru muncul setelah feromon terisi.`}},
+{t:'Refined oleh SA',l:['Setiap solusi semut diperhalus 5 iterasi SA','Terima perbaikan atau tolak dengan P = exp(−Δ/T)'],
+ d:'Simulated Annealing meniru pendinginan logam. Dari jadwal seekor semut, SA mengubah satu task ke VM acak (kandidat). Jika makespan tidak memburuk (Δ ≤ 0) kandidat diterima. Jika memburuk (Δ &gt; 0) kandidat tetap bisa diterima dengan peluang exp(−Δ/T). Suhu T tinggi di awal (sering menerima yang lebih buruk, jadi menjelajah dan bisa keluar dari optimum lokal) dan turun di akhir (hampir hanya menerima perbaikan, jadi menyempurnakan). Suhu: T = 25 × 0,05<sup>progres</sup>.',
+ ex(){const T=i=>25*Math.pow(.05,i/59),P=(d,t)=>(Math.exp(-d/t)*100).toFixed(0)+'%';return`suhu iterasi 0, 15, 30, 45, 59 = ${[0,15,30,45,59].map(i=>f2(T(i))).join(', ')}. Kandidat yang memperburuk makespan 0,5 s diterima dengan peluang ${P(.5,T(0))} di iterasi awal dan ${P(.5,T(59))} di iterasi akhir; yang memperburuk 2 s: ${P(2,T(0))} dan ${P(2,T(59))}.`}},
+{t:'Evaporasi & deposit feromon',l:['τ = (1 − ρ)×τ — evaporasi (ρ = 0,25)','τ[task][bestVm] += 1/makespan_terbaik'],
+ d:'Setelah semua semut selesai, setiap feromon dikurangi 25% (ρ = 0,25) agar jejak lama memudar dan pencarian tidak terkunci pada keputusan awal. Lalu hanya jadwal terbaik iterasi itu yang menyetor feromon baru pada pasangan (task, VM) yang dipakainya sebesar 1 / makespan. Makin kecil makespan, makin besar setoran, sehingga jadwal bagus makin menarik bagi semut iterasi berikutnya.',
+ ex(){const a=.75,dp=1/12;return`τ = 1,00 → ${f2(a)} setelah evaporasi. Jika makespan terbaik 12 s, setoran = 1/12 = ${dp.toFixed(3)} sehingga τ menjadi ${(a+dp).toFixed(3)}. Pasangan yang tidak dipilih terus menyusut: ${f2(a)} → ${f2(a*a)} → ${f2(a**3)}.`}},
+{t:'Update solusi global terbaik',l:['Simpan jadwal terbaik dari iterasi ini','Lanjut ke iterasi berikutnya sampai maxIter'],
+ d:'Jadwal terbaik iterasi dibandingkan dengan jadwal terbaik global. Global hanya diganti jika lebih baik, sehingga kurva konvergensi tidak pernah naik. Siklus (bangun, SA, evaporasi, update) berulang sampai iterasi maksimum; hasil akhirnya adalah jadwal terbaik global beserta makespan, cost, dan DI-nya.',
+ ex(){return`tiap semut menghabiskan 6 evaluasi jadwal (1 awal + 5 kandidat SA), jadi satu iterasi dengan 24 semut = 144 evaluasi, dan 60 iterasi = 8.640 evaluasi (NFE).`}}],
+[{t:'Inisialisasi populasi ngengat',l:['Setiap ngengat = solusi acak (pemetaan task→VM)','Hitung fitness (makespan) tiap ngengat'],
+ d:'Setiap ngengat adalah satu jadwal lengkap: vektor 16 angka bulat 0 sampai 3 (nomor VM tiap task) yang diisi acak, dan fitness-nya adalah makespan. Berbeda dengan ACO-SA yang membangun jadwal dengan bantuan heuristik kecepatan VM, DMFO-DE memulai dari tebakan murni acak. Awalnya lebih buruk, tetapi populasinya sangat beragam.',
+ ex(){const r=new LCG(2026),s=TK.map(()=>Math.floor(r.random()*NV));return`contoh satu ngengat (seed 2026): [${s.join(',')}] dengan makespan ${f2(ev(s).mk)} s, masih jauh dari batas ideal ${f2(LB)} s.`}},
+{t:'Kurangi jumlah nyala api',l:['flames = max(1, popSize − iter × (popSize−1)/maxIter)','Api makin sedikit seiring konvergensi'],
+ d:'Api adalah solusi-solusi terbaik yang menjadi tujuan ngengat. Jumlahnya awalnya sebanyak populasi lalu berkurang linear sampai 1. Banyak api berarti banyak tujuan berbeda (eksplorasi); sedikit api berarti semua ngengat menuju solusi terbaik (eksploitasi), mirip suhu yang turun pada SA. Ngengat ke-i mengejar api ke-i, atau api terakhir jika api lebih sedikit dari ngengat.',
+ ex(){return`untuk populasi 24 dan 60 iterasi: iterasi 0, 15, 30, 45, 59 → ${[0,15,30,45,59].map(i=>Math.max(1,Math.round(24-i*(23/60)))).join(', ')} api.`}},
+{t:'Trajektori spiral MFO',l:['nextPos = dist × exp(b×t) × cos(2π×t) + flamePos','Eksplorasi ruang solusi secara spiral'],
+ d:'Di MFO asli ngengat terbang spiral logaritmik mengelilingi api. dist = jarak posisi ngengat ke api, b = 1 (bentuk spiral), dan t acak di rentang [−1, 1]. Nilai t menentukan apakah ngengat mendarat dekat api atau agak jauh. Karena jadwal berupa nomor VM (diskrit), hasilnya dibulatkan lalu diambil modulo 4 supaya tetap 0 sampai 3.',
+ ex(){const cv=v=>((Math.round(v)%4)+4)%4;return`ngengat bernilai 3 dan api bernilai 1 (dist = 2): `+[.25,-.5,.9].map(t=>{const x=2*Math.exp(t)*Math.cos(2*Math.PI*t)+1;return`t = ${t} → ${x.toFixed(2)} → VM indeks ${cv(x)}`}).join('; ')+'.'}},
+{t:'Mutasi & crossover DE',l:['trial = best + F × (a − c) jika rand < CR (F = 0,6; CR = 0,7)','Kombinasi posisi spiral + operator DE/rand/1/bin'],
+ d:'Posisi hasil spiral diperkaya operator DE/rand/1/bin. <b>Mutasi</b>: nilai mutan = best[d] + F × (a[d] − c[d]), dengan best = jadwal terbaik global, a dan c = dua ngengat acak, F = 0,6. <b>Crossover binomial</b>: untuk tiap task, dengan peluang CR = 0,7 dipakai nilai mutan, selain itu nilai spiral dipertahankan; satu task acak (jRand) selalu memakai mutan agar trial pasti berbeda. Hasilnya dibulatkan modulo 4.',
+ ex(){return`best = 2, a = 0, c = 3 → 2 + 0,6 × (0 − 3) = 0,2 → dibulatkan 0, jadi task itu dipindah ke VM indeks 0. Dengan CR = 0,7, rata-rata sekitar 11 sampai 12 dari 16 task memakai nilai mutan dan sisanya tetap dari spiral.`}},
+{t:'Seleksi greedy',l:['Terima trial hanya jika makespan ≤ fitness ngengat saat ini','Update solusi global terbaik bila perlu'],
+ d:'Trial menggantikan ngengat hanya jika makespan-nya ≤ milik ngengat itu. Tanda "sama dengan" membolehkan berpindah ke jadwal yang sama baiknya sehingga populasi tidak macet. Jika trial lebih baik dari yang terbaik global, global diperbarui. Karena hanya menerima yang tidak lebih buruk, kurva konvergensi DMFO-DE tidak pernah naik.',
+ ex(){return`satu iterasi hanya 24 evaluasi (1 per ngengat), sedangkan ACO-SA 144. 60 iterasi = 24 + 1.440 = 1.464 evaluasi (NFE), sekitar 6 kali lebih hemat.`}}]];
+function ana(){const[a,d]=sim.a,w=sim.win,pc=o=>f2((o.bm.mk/LB-1)*100)+'%',ls=o=>o.bm.ld.map((l,j)=>`${VMS[j].id} ${f2(l)} s`).join(' · ');
+return`<div class="dd"><b>📊 Analisis hasil</b><br>${w==2?'Makespan kedua algoritma sama.':`<b>${sim.a[w].name}</b> menang: ${f2(sim.a[w].bm.mk)} s berbanding ${f2(sim.a[1-w].bm.mk)} s (selisih ${f2(Math.abs(a.bm.mk-d.bm.mk))} s).`}<br>Terhadap batas ideal ${f2(LB)} s: ACO-SA ${pc(a)} di atasnya, DMFO-DE ${pc(d)}.<br>Beban VM ACO-SA: ${ls(a)}<br>Beban VM DMFO-DE: ${ls(d)}<br>DI (0 = merata): ${f2(a.bm.di)} vs ${f2(d.bm.di)}.<br>NFE: ${a.nfe} vs ${d.nfe}. ACO-SA memakai ${f2(a.nfe/d.nfe)}× lebih banyak evaluasi, jadi DMFO-DE lebih hemat per iterasi. Ubah seed atau populasi lalu Reset untuk melihat apakah pemenangnya konsisten (Stage 6 melakukannya 10 kali).</div>`}
+function wt(k){let cur=0,seen=1;const e=$('#ex'),S=WT[k],draw=()=>{prog=cur/4;e.innerHTML=`<p>${S.map((s,i)=>`<button class="stp${i==cur?' on':''}" data-i="${i}">${i+1}. ${s.t}</button>`).join(' ')}</p><div class="fn" style="display:block"><b>Langkah ${cur+1}: ${S[cur].t}</b>${S[cur].l.map(x=>`<br>• ${x}`).join('')}</div><div class="dd">${S[cur].d}</div>${S[cur].ex?`<div class="dd">🔢 <b>Contoh angka:</b> ${S[cur].ex()}</div>`:''}<p><button id="sn">Langkah ▶</button></p>`;
+e.querySelectorAll('.stp').forEach(b=>b.onclick=()=>{snd();cur=+b.dataset.i;go()});$('#sn').onclick=()=>{snd();bl(440,.08);cur=Math.min(4,cur+1);go()}},
+go=()=>{seen=Math.max(seen,cur+1);draw();if(seen==5&&!ok)unlock('Yay! Semua langkah sudah kamu pelajari. Lanjut stage berikutnya!')};draw()}
+function qz(k){const q=QZ[k],e=$('#ex');e.innerHTML=`<p><b>${q.q}</b></p>${q.o.map((o,i)=>`<p><button class="kc" data-i="${i}"><b>${o.l}</b> ${o.t}</button></p>`).join('')}<p id="fb"></p>`;
+e.querySelectorAll('.kc').forEach(b=>b.onclick=()=>{if(kc[k]!==null)return;snd();const o=q.o[+b.dataset.i];kc[k]=o.ok?1:0;prog=1;e.querySelectorAll('.kc').forEach((x,i)=>{if(q.o[i].ok)x.classList.add('good');else if(x==b)x.classList.add('bad');x.disabled=true});$('#fb').innerHTML=(o.ok?'✅ ':'❌ ')+o.fb;unlock(o.ok?'Yay! Jawabanmu benar! Lanjut stage berikutnya!':'Hampir! Baca penjelasannya lalu lanjut stage berikutnya.')})}
+/* ---- Simulator ---- */
+function ini(){sim={T:mxi,a:mkPair(pop,mxi,sd),p:[0,0],done:0};const an=$('#an');if(an)an.innerHTML='';run=false;const r=$('#rn');if(r)r.textContent='▶ Play';ok=false;const n=$('#nx');if(n)n.disabled=true;upd()}
+function upd(){sim.p=sim.a.map(o=>o.bm.mk==Infinity?0:Math.max(0,Math.min(1,1-(o.bm.mk-LB)/4)));dg();dch();dst()}
+function tick(){if(!sim||sim.done)return;sim.a.forEach(o=>o.step());upd();if(sim.a[0].it>=sim.T){run=false;sim.done=1;$('#rn').textContent='▶ Ulangi';const[a,d]=sim.a,w=a.bm.mk<d.bm.mk?0:d.bm.mk<a.bm.mk?1:2;sim.win=w;wins[w]++;
+ $('#an').innerHTML=ana();unlock(w==2?'Seri! Makespan keduanya sama. Lanjut stage berikutnya!':`Yay! ${sim.a[w].name} menang dengan makespan ${f2(sim.a[w].bm.mk)} detik! Lanjut stage berikutnya!`)}}
+function dg(){const cv=$('#m');if(!cv||!sim)return;const X=cv.getContext('2d'),w=cv.width,h=cv.height,ox=46,mx=24,rh=(h/2-34)/NV,pw=w-ox-6;X.fillStyle='#fff9e6';X.fillRect(0,0,w,h);
+sim.a.forEach((o,k)=>{const y0=k*h/2;X.fillStyle=CC[k];X.font='bold 18px '+FONT;X.fillText(o.name+(o.bm.bl.length?' · makespan '+f2(o.bm.mk)+' s':''),6,y0+20);
+for(let j=0;j<NV;j++){const y=y0+28+j*(rh+2);X.fillStyle=INK;X.font='14px '+FONT;X.fillText(VMS[j].id,2,y+rh-4);X.strokeStyle=INK;X.lineWidth=1;X.strokeRect(ox,y,pw,rh);
+(o.bm.bl[j]||[]).forEach((b,q)=>{const x=ox+b.a/mx*pw,bw=(b.b-b.a)/mx*pw;X.fillStyle=GC[j];X.globalAlpha=q%2?.7:1;X.fillRect(x,y,bw,rh);X.globalAlpha=1;X.lineWidth=2;X.strokeRect(x,y,bw,rh);if(bw>20){X.fillStyle=INK;X.fillText(b.id.slice(1),x+3,y+rh-4)}})}});
+X.setLineDash([5,4]);X.strokeStyle='#d02020';X.lineWidth=2;X.beginPath();X.moveTo(ox+LB/mx*pw,0);X.lineTo(ox+LB/mx*pw,h);X.stroke();X.setLineDash([])}
+function dch(){const k=$('#ch');if(!k||!sim)return;const X=k.getContext('2d'),w=k.width,h=k.height;X.clearRect(0,0,w,h);const all=sim.a.flatMap(o=>o.h).concat(LB),lo=Math.min(...all),hi=Math.max(...all),Y=v=>h-12-(v-lo)/(hi-lo||1)*(h-36);
+sim.a.forEach((o,i)=>{X.beginPath();o.h.forEach((v,q)=>{const x=q/Math.max(1,sim.T-1)*(w-12)+6;q?X.lineTo(x,Y(v)):X.moveTo(x,Y(v))});X.strokeStyle=CC[i];X.lineWidth=4;X.lineJoin='round';X.stroke()});
+X.setLineDash([5,4]);X.strokeStyle='#d02020';X.lineWidth=2;X.beginPath();X.moveTo(0,Y(LB));X.lineTo(w,Y(LB));X.stroke();X.setLineDash([]);X.fillStyle=getComputedStyle(document.body).color;X.font='17px '+FONT;X.fillText('makespan terbaik (s) vs iterasi, garis merah = batas ideal',6,16)}
+function dst(){const e=$('#st');if(!e||!sim)return;e.innerHTML=`<table class="tb"><tr><th></th><th>Iterasi</th><th>Makespan (s)</th><th>Cost ($)</th><th>DI</th><th>Gap</th><th>NFE</th></tr>${sim.a.map((o,i)=>`<tr><td style="color:${CC[i]}">${o.name}</td><td>${o.it}/${o.T}</td><td>${o.bm.mk==Infinity?'--':f2(o.bm.mk)}</td><td>${o.bm.mk==Infinity?'--':f2(o.bm.cost)}</td><td>${o.bm.mk==Infinity?'--':f2(o.bm.di)}</td><td>${o.bm.mk==Infinity?'--':f2(o.bm.mk-LB)+' s'}</td><td>${o.nfe}</td></tr>`).join('')}</table>`}
+function simUI(){const e=$('#ex');e.innerHTML=`<p>Populasi <input type="range" id="pp" min="8" max="40" value="${pop}"> <b id="pv">${pop}</b></p><p>Max iterasi <input type="range" id="ii" min="20" max="100" step="10" value="${mxi}"> <b id="iv">${mxi}</b></p><p>Seed <input type="number" id="sdi" value="${sd}" style="width:90px;font:inherit"></p><p><button id="rn" class="go">▶ Play</button> <button id="sp">Step</button> <button id="rt">↺ Reset</button></p>`;
+$('#rc').innerHTML=`<canvas class="s" id="m" width="420" height="380"></canvas>`;$('#rc2').innerHTML=`<canvas id="ch" width="440" height="200" style="width:100%"></canvas><div id="st" style="overflow-x:auto"></div><div id="an"></div>`;
+$('#pp').oninput=$('#ii').oninput=$('#sdi').onchange=()=>{pop=+$('#pp').value;mxi=+$('#ii').value;sd=+$('#sdi').value||2026;$('#pv').textContent=pop;$('#iv').textContent=mxi;ini()};
+$('#rn').onclick=()=>{snd();if(sim.done)ini();run=!run;$('#rn').textContent=run?'⏸ Pause':'▶ Play';if(run){bl(300,.15);bl(300,.15,.2);say('Gas pol!')}};
+$('#sp').onclick=()=>{if(sim.done)return;run=false;$('#rn').textContent='▶ Play';tick()};$('#rt').onclick=()=>{snd();ini()};ini()}
+/* ---- Benchmark ---- */
+function bmUI(){const e=$('#ex');e.innerHTML=`<p><button id="bg" class="go">▶ Jalankan 10 Trial</button> <button id="cp" disabled>📋 Salin CSV</button></p><div id="bt">Belum dijalankan.</div><textarea id="csv" rows="4" style="width:100%;display:none;font:13px monospace"></textarea>`;
+$('#bg').onclick=()=>{snd();bl(330,.1);const rows=[];let wa=0,wd=0;for(let t=1;t<=10;t++){const s=2026+t*37,[a,d]=mkPair(pop,mxi,s);for(let i=0;i<mxi;i++){a.step();d.step()}const df=a.bm.mk-d.bm.mk;rows.push({t,s,a:a.bm.mk,d:d.bm.mk,df,w:df<0?'ACO-SA':df>0?'DMFO-DE':'Seri'});}
+ wa=rows.filter(r=>r.w=='ACO-SA').length;wd=rows.filter(r=>r.w=='DMFO-DE').length;bres={wa,wd,ra:rows.reduce((x,r)=>x+r.a,0)/10,rd:rows.reduce((x,r)=>x+r.d,0)/10};prog=1;const sa=stt(rows.map(r=>r.a)),sb=stt(rows.map(r=>r.d));
+ $('#bt').innerHTML=`<table class="tb"><tr><th>Trial</th><th>Seed</th><th>ACO-SA</th><th>DMFO-DE</th><th>Δ</th><th>Unggul</th></tr>${rows.map(r=>`<tr><td>${r.t}</td><td>${r.s}</td><td>${r.a.toFixed(4)}</td><td>${r.d.toFixed(4)}</td><td>${r.df.toFixed(4)}</td><td>${r.w}</td></tr>`).join('')}</table><p>ACO-SA unggul ${wa}×, DMFO-DE ${wd}×, seri ${10-wa-wd}×. Rata-rata makespan: ${f2(bres.ra)} vs ${f2(bres.rd)} s.</p><table class="tb"><tr><th></th><th>Rata-rata</th><th>Std</th><th>Terbaik</th><th>Terburuk</th></tr><tr><td style="color:#e4352f">ACO-SA</td>${sa.map(x=>`<td>${f2(x)}</td>`).join('')}</tr><tr><td style="color:#2b6fdc">DMFO-DE</td>${sb.map(x=>`<td>${f2(x)}</td>`).join('')}</tr></table><p class="sm">${sa[1]<sb[1]?'ACO-SA':'DMFO-DE'} lebih stabil (simpangan baku lebih kecil) dan ${sa[0]<sb[0]?'ACO-SA':'DMFO-DE'} punya rata-rata makespan lebih rendah pada 10 trial ini.</p>`;
+ const csv=['Trial,Seed,ACO_SA_Makespan,DMFO_DE_Makespan,Delta,Winner',...rows.map(r=>[r.t,r.s,r.a.toFixed(4),r.d.toFixed(4),r.df.toFixed(4),r.w].join(','))].join('\n'),ta=$('#csv');ta.value=csv;ta.style.display='block';$('#cp').disabled=false;
+ $('#cp').onclick=()=>{ta.select();try{navigator.clipboard.writeText(csv)}catch(x){}};unlock(`Yay! Benchmark selesai: ACO-SA ${wa}×, DMFO-DE ${wd}×. Lanjut ke garis finish!`)}}
+function finUI(){const n=kc.filter(x=>x===1).length,R=(a,b,c)=>`<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`;$('#ex').innerHTML=`<p>Skor Knowledge Check: <b>${n} / 2</b></p>${bres?`<p>Benchmark 10 trial: ACO-SA unggul ${bres.wa}×, DMFO-DE ${bres.wd}× (rata-rata ${f2(bres.ra)} s vs ${f2(bres.rd)} s).</p>`:'<p>Kamu belum menjalankan benchmark di Stage 6.</p>'}
+<table class="tb" style="text-align:left"><tr><th></th><th>ACO-SA</th><th>DMFO-DE</th></tr>${R('Inspirasi','Semut dan jejak feromon + pendinginan logam','Ngengat terbang spiral ke api + evolusi diferensial')}${R('Cara membuat jadwal','Dibangun bertahap, dipandu feromon dan kecepatan VM','Diubah dari populasi acak lewat spiral, mutasi, crossover')}${R('Eksplorasi','Undian berbobot dan suhu SA tinggi','Banyak api dan operator mutasi DE')}${R('Eksploitasi','Suhu turun, feromon jadwal terbaik menguat','Api berkurang menjadi 1')}${R('Penerimaan solusi','Boleh menerima yang lebih buruk (peluang exp(−Δ/T))','Greedy (hanya jika makespan ≤)')}${R('Evaluasi per iterasi','6 × populasi (144)','1 × populasi (24)')}${R('Parameter utama','α 1, β 1,5, ρ 0,25, T0 25','F 0,6, CR 0,7, b 1')}</table>
+<p><b>Kesimpulan:</b> tidak ada algoritma yang selalu menang. ACO-SA mendapat bantuan heuristik dan lebih banyak evaluasi sehingga sering lebih dekat ke batas ideal pada dataset kecil ini, sedangkan DMFO-DE lebih hemat komputasi. Hasilnya bergantung pada dataset, populasi, iterasi, dan seed, jadi bandingkan lewat banyak trial.</p>
+<p class="sm">Catatan: dataset hanya 16 task dan 4 VM dengan task dijalankan berurutan per VM. Pada kode asli, DMFO-DE tidak menginisialisasi currentIter sehingga tidak pernah iterasi; di sini sudah diperbaiki.</p>`;prog=.6}
+const MSGW=['Stage 1: semut dan suhu bekerja sama mencari jadwal terbaik!'];
+function view(s){stage=s;run=false;ok=false;sim=null;prog=0;clearTimeout(tm);const d=ST[s];$('#sg').textContent=`Stage ${s+1}/${NS}`;
+$('#p').innerHTML=`<div class="row"><div class="card"><h2>${d.t}</h2>${d.b?`<p>${d.b}</p>`:''}${d.hint||''}<div id="ex"></div><p><button id="nx" class="go" ${d.free?'':'disabled'}>${d.btn}</button></p></div>${d.sim?'<div class="card" id="rc"></div><div class="card" id="rc2"></div>':''}</div>`;
+const lead=Math.max(...cars.map(o=>o.x));cars=s==3?[mkc(CC[0],1,0,'ACO-SA'),mkc(CC[1],.85,22,'DMFO-DE')]:[mkc(d.col||(s>3?CC[1]:CC[0]),1,0)];cars.forEach(o=>o.x=s?lead:0);
+say(d.m);if(d.free)ok=true;if(s==NS-1){burst();yay()}
+$('#nx').onclick=()=>{snd();bl(440,.08);if(s==NS-1){cars=[mkc(CC[0],1,0)];cam=0;kc=[null,null];bres=null;view(0)}else view(s+1)};
+if(d.go)d.go();if(d.wt!==undefined)wt(d.wt);if(d.qz!==undefined)qz(d.qz);if(d.sim)simUI();if(d.bm)bmUI();if(d.fin)finUI()}
+/* Suara */
+function snd(){if(A)return;A=new(window.AudioContext||window.webkitAudioContext)();osc=A.createOscillator();osc.type='sawtooth';const lp=A.createBiquadFilter();lp.frequency.value=420;gn=A.createGain();gn.gain.value=0;osc.connect(lp);lp.connect(gn);gn.connect(A.destination);osc.start()}
+function bl(f,d,t0=0){if(!A||muted)return;const o=A.createOscillator(),e=A.createGain(),n=A.currentTime+t0;o.type='square';o.frequency.value=f;e.gain.setValueAtTime(.07,n);e.gain.exponentialRampToValueAtTime(.001,n+d);o.connect(e);e.connect(A.destination);o.start(n);o.stop(n+d)}
+function yay(){[523,659,784,1047].forEach((f,i)=>bl(f,.22,i*.11))}
+$('#mu').onclick=()=>{snd();muted=!muted;$('#mu').textContent=muted?'🔇':'🔊'};
+addEventListener('pointerdown',snd,{once:true});
+function burst(){for(let i=0;i<90;i++)conf.push({x:W/2,y:H*.3,vx:(Math.random()-.5)*10,vy:-Math.random()*8-2,c:['#e4352f','#ffd23f','#2b6fdc','#7bd14f','#ff8fb1'][i%5],r:Math.random()*6})}
+/* Gambar adegan */
+function blob(x,y,s){c.beginPath();[[0,0,22],[24,6,17],[-24,8,15],[8,-12,16]].forEach(([a,b,r])=>{c.moveTo(x+a*s+r*s,y+b*s);c.arc(x+a*s,y+b*s,r*s,0,TAU)});c.fillStyle='#fff';c.fill()}
+const hf=(par,base,amp,x)=>base-(Math.sin((x+cam*par)*.004+par*5)*amp+Math.sin((x+cam*par)*.011)*amp*.3);
+function hill(par,base,amp,col){c.beginPath();c.moveTo(0,H);for(let x=0;x<=W+10;x+=10)c.lineTo(x,hf(par,base,amp,x));c.lineTo(W+10,H);c.closePath();c.fillStyle=col;c.fill();c.strokeStyle=INK;c.lineWidth=3;c.stroke()}
+function tree(x,y,s){c.fillStyle='#8a5a2b';c.fillRect(x-4*s,y-26*s,8*s,26*s);c.strokeRect(x-4*s,y-26*s,8*s,26*s);c.beginPath();c.arc(x,y-38*s,18*s,0,TAU);c.fillStyle='#4aa83a';c.fill();c.stroke()}
+function flag(wx,txt,fin){const x=wx-cam;if(x<-120||x>W+120)return;const y=hy(wx);c.strokeStyle=INK;c.lineWidth=5;c.beginPath();c.moveTo(x,y);c.lineTo(x,y-90);c.stroke();
+c.fillStyle=fin?'#fff':'#ffd23f';c.fillRect(x,y-90,70,30);c.lineWidth=3;c.strokeRect(x,y-90,70,30);
+if(fin){c.fillStyle=INK;for(let i=0;i<7;i++)for(let j=0;j<3;j++)if((i+j)%2==0)c.fillRect(x+i*10,y-90+j*10,10,10)}
+else{c.fillStyle=INK;c.font='20px '+FONT;c.fillText(txt,x+6,y-68)}}
+function drawCar(o){const s=o.sc,r=14*s,xr=o.x-28*s,xf=o.x+28*s,yr=hy(xr)-r-o.dy,yf=hy(xf)-r-o.dy,an=Math.atan2(yf-yr,xf-xr),b=Math.abs(Math.sin(fr*.4))*o.v*.35,sx=o.x-cam;
+c.fillStyle='rgba(0,0,0,.2)';c.beginPath();c.ellipse(sx,hy(o.x)-o.dy+2,48*s,7*s,an,0,TAU);c.fill();
+c.save();c.translate(sx,(yr+yf)/2-b);c.rotate(an);c.scale(s,s);c.lineWidth=3/s;c.strokeStyle=INK;c.lineJoin='round';
+c.fillStyle=o.col;c.beginPath();c.roundRect(-44,-30,88,24,8);c.fill();c.stroke();
+c.beginPath();c.moveTo(-26,-30);c.lineTo(-18,-50);c.lineTo(8,-50);c.lineTo(18,-30);c.closePath();c.fillStyle='#bfe9ff';c.fill();c.stroke();
+c.fillStyle='#f4c59a';c.beginPath();c.arc(-3,-47,9,0,TAU);c.fill();c.stroke();c.fillStyle='#d02020';c.beginPath();c.arc(-3,-50,9,Math.PI,TAU);c.fill();c.stroke();c.fillRect(2,-52,12,4);c.strokeRect(2,-52,12,4);
+c.fillStyle='#ffe066';c.beginPath();c.arc(42,-22,4,0,TAU);c.fill();c.stroke();
+[-28,28].forEach(wx=>{c.save();c.translate(wx,0);c.fillStyle='#2a2a2a';c.beginPath();c.arc(0,0,14,0,TAU);c.fill();c.stroke();c.rotate(o.rot);c.fillStyle='#ddd';c.beginPath();c.arc(0,0,7,0,TAU);c.fill();c.stroke();c.beginPath();for(let i=0;i<3;i++){c.moveTo(0,0);c.lineTo(7*Math.cos(i*2.09),7*Math.sin(i*2.09))}c.stroke();c.restore()});
+c.restore();
+if(o.name){c.font='bold 18px '+FONT;c.fillStyle='#fff';c.strokeStyle=INK;c.lineWidth=4;c.strokeText(o.name,sx-18,(yr+yf)/2-72*s);c.fillText(o.name,sx-18,(yr+yf)/2-72*s)}
+if(o.v>1&&fr%3==0)puf.push({x:xr,y:hy(xr)-8-o.dy,r:5,a:1})}
+function bubble(){const L=cars.reduce((a,b)=>a.x>b.x?a:b),sx=L.x-cam,sy=hy(L.x)-L.dy-120;bub.n=Math.min(bub.t.length,bub.n+.7);const t=bub.t.slice(0,bub.n|0);c.font='21px '+FONT;
+const ws=t.split(' '),ln=[];let cur='';ws.forEach(w=>{if(c.measureText(cur+' '+w).width>230&&cur){ln.push(cur);cur=w}else cur=cur?cur+' '+w:w});ln.push(cur);
+const bw=Math.max(...ln.map(l=>c.measureText(l).width))+24,bh=ln.length*24+16,bx=Math.max(8,Math.min(W-bw-8,sx-bw/2)),by=sy-bh;
+c.fillStyle='#fff';c.strokeStyle=INK;c.lineWidth=3;c.beginPath();c.roundRect(bx,by,bw,bh,14);c.fill();c.stroke();
+c.beginPath();c.moveTo(sx-8,by+bh-1);c.lineTo(sx,sy+16);c.lineTo(sx+10,by+bh-1);c.fillStyle='#fff';c.fill();c.stroke();c.fillRect(sx-7,by+bh-3,16,5);
+c.fillStyle=INK;ln.forEach((l,i)=>c.fillText(l,bx+12,by+27+i*24))}
+function scene(){const q=c.createLinearGradient(0,0,0,H);q.addColorStop(0,'#7cc8f0');q.addColorStop(1,'#e8f7ff');c.fillStyle=q;c.fillRect(0,0,W,H);
+c.fillStyle='#ffd23f';c.strokeStyle=INK;c.lineWidth=4;c.beginPath();c.arc(W*.86,H*.2,30,0,TAU);c.fill();c.stroke();
+for(let i=0;i<8;i++){blob(((i*260-cam*.15)%2080+2080)%2080-120,H*.12+(i*37%40),1)}
+hill(.25,H*.55,34,'#a7e08f');
+const k0=Math.floor(cam*.5/150)-1;for(let k=k0;k<k0+W/150+3;k++){const x=k*150-cam*.5;c.lineWidth=2.5;tree(x,hf(.5,H*.68,28,x+cam*.5-cam*.5+0)+4,.7+(k*7%3)*.15)}
+hill(.5,H*.7,26,'#86cf6b');
+c.beginPath();c.moveTo(-10,H);for(let x=-10;x<=W+10;x+=6)c.lineTo(x,hy(cam+x));c.lineTo(W+10,H);c.closePath();c.fillStyle='#b5702f';c.fill();
+c.fillStyle='#8f5522';for(let k=Math.floor(cam/70);k<(cam+W)/70+1;k++){const x=k*70+(k*37%30)-cam;c.beginPath();c.arc(x,hy(cam+x)+22+(k*13%40),4+k%4,0,TAU);c.fill()}
+c.beginPath();for(let x=-10;x<=W+10;x+=6)c[x<0?'moveTo':'lineTo'](x,hy(cam+x));c.lineJoin='round';c.strokeStyle=INK;c.lineWidth=18;c.stroke();c.strokeStyle='#5fb83c';c.lineWidth=11;c.stroke();
+for(let s=0;s<NS;s++){flag(s*1000+60,'S'+(s+1),0);flag(s*1000+950,'',1)}
+puf=puf.filter(p=>(p.a-=.03)>0);puf.forEach(p=>{c.globalAlpha=p.a;c.fillStyle='#ddd';c.beginPath();c.arc(p.x-cam-(1-p.a)*20,p.y-(1-p.a)*20,p.r+(1-p.a)*8,0,TAU);c.fill()});c.globalAlpha=1;
+[...cars].reverse().forEach(drawCar);
+c.fillStyle='#4aa83a';c.strokeStyle=INK;c.lineWidth=3;for(let k=Math.floor(cam*1.3/90);k<(cam*1.3+W)/90+1;k++){const x=k*90-cam*1.3;c.beginPath();c.moveTo(x,H+2);c.quadraticCurveTo(x+8,H-16-(k*7%12),x+16,H+2);c.fill();c.stroke()}
+bubble();conf=conf.filter(p=>p.y<H+20);conf.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.2;c.fillStyle=p.c;c.fillRect(p.x,p.y,8,p.r+3)})}
+function frame(){fr++;if(run&&fr%5==0)tick();const b=stage*1000;
+cars.forEach((o,i)=>{let p=prog;if(stage==3&&sim){p=sim.p[i];if(sim.done)p=i==sim.win?1:Math.min(p,.9)}o.tx=b+150+700*p});
+cars.forEach(o=>{const dx=o.tx-o.x;o.v+=(Math.max(0,Math.min(7,dx*.04))-o.v)*.08;o.x+=o.v;o.rot+=o.v*.09});
+const lead=Math.max(...cars.map(o=>o.x));cam+=(lead-W*.3-cam)*.06;
+if(A){const sp=Math.max(...cars.map(o=>o.v));osc.frequency.setTargetAtTime(38+sp*16+Math.sin(fr*.5)*3,A.currentTime,.05);gn.gain.setTargetAtTime(muted?0:.03+sp*.012,A.currentTime,.1)}
+scene();requestAnimationFrame(frame)}
+rs();view(0);frame();
+</script></body></html>
